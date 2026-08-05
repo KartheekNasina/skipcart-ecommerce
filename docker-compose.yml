@@ -1,0 +1,88 @@
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: skipcart-postgres
+    environment:
+      POSTGRES_DB: skipcart_db
+      POSTGRES_USER: skipcart_user
+      POSTGRES_PASSWORD: skipcart_password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skipcart_user -d skipcart_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skipcart-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: skipcart-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: skipcart_user
+      MONGO_INITDB_ROOT_PASSWORD: skipcart_password123
+      MONGO_INITDB_DATABASE: skipcart_products
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skipcart-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: skipcart-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skipcart-network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: skipcart-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: skipcart_user
+      RABBITMQ_DEFAULT_PASS: skipcart_password123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skipcart-network
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  skipcart-network:
+    driver: bridge
