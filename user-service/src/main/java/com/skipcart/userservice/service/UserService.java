@@ -1,5 +1,6 @@
 package com.skipcart.userservice.service;
 
+import com.skipcart.userservice.dto.AuthResponseDTO;
 import com.skipcart.userservice.dto.UserLoginDTO;
 import com.skipcart.userservice.dto.UserRegistrationDTO;
 import com.skipcart.userservice.dto.UserResponseDTO;
@@ -7,6 +8,7 @@ import com.skipcart.userservice.entity.User;
 import com.skipcart.userservice.exception.InvalidCredentialsException;
 import com.skipcart.userservice.exception.UserAlreadyExistsException;
 import com.skipcart.userservice.repository.UserRepository;
+import com.skipcart.userservice.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public UserResponseDTO registerUser(UserRegistrationDTO dto) {
         log.info("Attempting to register user with email: {}", dto.getEmail());
@@ -30,7 +33,7 @@ public class UserService {
 
         User user = User.builder()
                 .email(dto.getEmail())
-                .password(passwordEncoder.encode(dto.getPassword())) // Never store plain text!
+                .password(passwordEncoder.encode(dto.getPassword()))
                 .firstName(dto.getFirstName())
                 .lastName(dto.getLastName())
                 .role(dto.getRole() != null ? dto.getRole() : User.Role.CUSTOMER)
@@ -42,7 +45,7 @@ public class UserService {
         return UserResponseDTO.fromEntity(savedUser);
     }
 
-    public UserResponseDTO login(UserLoginDTO dto) {
+    public AuthResponseDTO login(UserLoginDTO dto) {
         log.info("Login attempt for email: {}", dto.getEmail());
 
         User user = userRepository.findByEmail(dto.getEmail())
@@ -53,8 +56,15 @@ public class UserService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
+        String token = jwtTokenProvider.generateToken(
+                user.getEmail(), user.getId(), user.getRole().name()
+        );
+
         log.info("Login successful for email: {}", dto.getEmail());
-        return UserResponseDTO.fromEntity(user);
-        // Note: No token yet - that's Day 4 with JWT!
+
+        return AuthResponseDTO.builder()
+                .token(token)
+                .user(UserResponseDTO.fromEntity(user))
+                .build();
     }
 }

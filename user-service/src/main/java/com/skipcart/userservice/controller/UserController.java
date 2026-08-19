@@ -1,5 +1,6 @@
 package com.skipcart.userservice.controller;
 
+import com.skipcart.userservice.dto.AuthResponseDTO;
 import com.skipcart.userservice.dto.UserLoginDTO;
 import com.skipcart.userservice.dto.UserRegistrationDTO;
 import com.skipcart.userservice.dto.UserResponseDTO;
@@ -24,13 +25,19 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserResponseDTO> login(@Valid @RequestBody UserLoginDTO dto) {
-        UserResponseDTO response = userService.login(dto);
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody UserLoginDTO dto) {
+        AuthResponseDTO response = userService.login(dto);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("User Service is running!");
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<String> getCurrentUser() {
+        // We'll extract this from JWT context - just a placeholder to test protected route
+        return ResponseEntity.ok("This is a protected endpoint - you have a valid token!");
     }
 }
