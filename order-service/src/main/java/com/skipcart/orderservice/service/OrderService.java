@@ -1,12 +1,19 @@
 package com.skipcart.orderservice.service;
 
+import com.skipcart.orderservice.client.ProductServiceClient;
+import com.skipcart.orderservice.client.UserServiceClient;
 import com.skipcart.orderservice.dto.OrderItemRequestDTO;
 import com.skipcart.orderservice.dto.OrderRequestDTO;
 import com.skipcart.orderservice.dto.OrderResponseDTO;
+import com.skipcart.orderservice.dto.external.ProductDTO;
+import com.skipcart.orderservice.dto.external.UserDTO;
 import com.skipcart.orderservice.entity.Order;
 import com.skipcart.orderservice.entity.OrderItem;
 import com.skipcart.orderservice.exception.InvalidOrderStateException;
 import com.skipcart.orderservice.exception.OrderNotFoundException;
+import com.skipcart.orderservice.exception.UserNotFoundException;
+import com.skipcart.orderservice.exception.ProductNotFoundException;
+import com.skipcart.orderservice.exception.InsufficientStockException;
 import com.skipcart.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +29,19 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final UserServiceClient userServiceClient;
+    private final ProductServiceClient productServiceClient;
 
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO dto) {
         log.info("Creating order for userId: {}", dto.getUserId());
+
+        // Step 1: Validate user exists (via WebClient -> user-service)
+        UserDTO user = userServiceClient.getUserById(dto.getUserId());
+        if (user == null) {
+            throw new UserNotFoundException("User not found with id: " + dto.getUserId());
+        }
+        log.info("User validated: {}", user.getEmail());
 
         Order order = Order.builder()
                 .userId(dto.getUserId())
@@ -35,11 +51,31 @@ public class OrderService {
 
         BigDecimal total = BigDecimal.ZERO;
 
+        // Step 2: For each item, fetch REAL product data (via RestTemplate -> product-service)
+        // We do NOT trust client-provided price/name - always verify against source of truth
         for (OrderItemRequestDTO itemDto : dto.getItems()) {
+            ProductDTO product = productServiceClient.getProductById(itemDto.getProductId());
+
+            if (product == null) {
+                throw new ProductNotFoundException("Product not found with id: " + itemDto.getProductId());
+            }
+
+            if (!Boolean.TRUE.equals(product.getActive())) {
+                throw new ProductNotFoundException("Product is no longer available: " + product.getName());
+            }
+
+            if (product.getStockQuantity() < itemDto.getQuantity()) {
+                throw new InsufficientStockException(
+                        "Insufficient stock for " + product.getName() +
+                                ". Available: " + product.getStockQuantity() +
+                                ", Requested: " + itemDto.getQuantity()
+                );
+            }
+
             OrderItem item = OrderItem.builder()
-                    .productId(itemDto.getProductId())
-                    .productName(itemDto.getProductName())
-                    .unitPrice(itemDto.getUnitPrice())
+                    .productId(product.getId())
+                    .productName(product.getName())       // From product-service, not client input
+                    .unitPrice(product.getPrice())          // From product-service, not client input
                     .quantity(itemDto.getQuantity())
                     .build();
 

@@ -7,6 +7,7 @@ import com.skipcart.userservice.dto.UserResponseDTO;
 import com.skipcart.userservice.entity.User;
 import com.skipcart.userservice.exception.InvalidCredentialsException;
 import com.skipcart.userservice.exception.UserAlreadyExistsException;
+import com.skipcart.userservice.exception.UserNotFoundException;
 import com.skipcart.userservice.repository.UserRepository;
 import com.skipcart.userservice.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -66,5 +67,11 @@ public class UserService {
                 .token(token)
                 .user(UserResponseDTO.fromEntity(user))
                 .build();
+    }
+
+    public UserResponseDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+        return UserResponseDTO.fromEntity(user);
     }
 }
