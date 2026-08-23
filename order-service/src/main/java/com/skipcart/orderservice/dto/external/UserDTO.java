@@ -1,0 +1,11 @@
+package com.skipcart.orderservice.dto.external;
+
+import lombok.Data;
+
+@Data
+public class UserDTO {
+    private Long id;
+    private String email;
+    private String firstName;
+    private String lastName;
+}

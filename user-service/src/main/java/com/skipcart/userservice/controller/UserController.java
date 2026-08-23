@@ -40,4 +40,9 @@ public class UserController {
         // We'll extract this from JWT context - just a placeholder to test protected route
         return ResponseEntity.ok("This is a protected endpoint - you have a valid token!");
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserResponseDTO> getUserById(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUserById(id));
+    }
 }
