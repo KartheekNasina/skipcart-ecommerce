@@ -78,4 +78,19 @@ public class JwtTokenProvider {
         }
         return false;
     }
+
+    /**
+     * Get remaining validity time of a token, in milliseconds.
+     * Used to set matching TTL on blacklist entry.
+     */
+    public long getRemainingExpiration(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        Date expiration = claims.getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
+    }
 }
