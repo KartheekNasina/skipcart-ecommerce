@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.skipcart.orderservice.event.OrderCreatedEvent;
+import com.skipcart.orderservice.event.OrderEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,6 +33,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserServiceClient userServiceClient;
     private final ProductServiceClient productServiceClient;
+    private final OrderEventPublisher orderEventPublisher;
 
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO dto) {
@@ -87,6 +90,17 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         log.info("Order created with id: {}, total: {}", saved.getId(), saved.getTotalAmount());
+
+// Publish event AFTER successful save
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(saved.getId())
+                .userId(saved.getUserId())
+                .totalAmount(saved.getTotalAmount())
+                .shippingAddress(saved.getShippingAddress())
+                .createdAt(saved.getCreatedAt())
+                .build();
+
+        orderEventPublisher.publishOrderCreatedEvent(event);
 
         return OrderResponseDTO.fromEntity(saved);
     }
